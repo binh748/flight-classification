@@ -78,7 +78,7 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
         y_train_val: A dataframe, containing 80% of the original target data, to
             be used for training and validation.
     """
-    if scale: # Scale features before fitting model
+    if scale: # Scales features before fitting model
         scaler = StandardScaler()
         # Saves the feature names since they get lost after scaling
         feature_names = X_train.columns
@@ -103,7 +103,8 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
     scores = calc_classif_scores(
         y_train, y_train_pred,
         y_val, y_val_pred)
-    print_classif_scores(scores)
+    print('SIMPLE VALIDATION')
+    print_classif_scores(scores, model_name, hyperparameters)
     if model_name == 'LogisticRegression':
         print_coefficients(feature_names, model)
     scores_dict = record_scores(model_name, hyperparameters, scores)
@@ -133,12 +134,15 @@ def calc_classif_scores(y_train, y_train_pred,
     return scores
 
 
-def print_classif_scores(scores):
+def print_classif_scores(scores, model_name, hyperparameters):
     train_f1, val_f1, \
     train_precision, val_precision, \
     train_recall, val_recall, \
     train_accuracy, val_accuracy, \
     train_auc, val_auc = scores
+
+    print(f'Model name: {model_name}')
+    print(f'Hyperparameters: {hyperparameters}\n')
 
     print(f'{"Train F1:": <40} {train_f1: .2f}')
     print(f'{"Val F1:": <40} {val_f1: .2f}')
@@ -159,7 +163,7 @@ def print_coefficients(feature_names, model):
     print(f'\n{"Intercept:": <40} {model.intercept_[0]: .2f}')
 
 
-def cv(model, X_train_val, y_train_val, cv_records_df):
+def cv(model, X_train_val, y_train_val, records_df, scale=False):
     """Performs 5-fold cross validation and prints training and test scores.
     Also adds scores to cv_records, which is a list of dicts.
 
@@ -171,15 +175,34 @@ def cv(model, X_train_val, y_train_val, cv_records_df):
             be used for training and validation.
         cv_records_df: A dataframe to record cross validation scores.
     """
+    # Saves the feature names, which will get lost if scaling applied
+    feature_names = X_train_val.columns
+    if scale:
+        scaler = StandardScaler()
+        X_train_val = scaler.fit_transform(X_train_val)
     kf = KFold(n_splits=5, shuffle=True, random_state=4444)
     scores = cross_validate(model, X_train_val, y_train_val,
-                            cv=kf, scoring=['f1', 'precision',
-                                            'recall', 'accuracy',
-                                            'roc_auc'],
+                            cv=kf, scoring=['f1', 'precision', 'recall',
+                                            'accuracy', 'roc_auc'],
                             return_train_score=True)
 
-    model_name = re.sub(r'\((.*)\)', '', str(model))
+    match = re.search('^[A-Za-z]+', str(model))
+    model_name = match.group(0)
     hyperparameters = str(model).replace(model_name, '')[1:-1]
+
+    mean_scores = calc_classif_scores_cv(scores)
+    print('CROSS VALIDATION')
+    print_classif_scores(mean_scores, model_name, hyperparameters)
+
+    if model_name == 'LogisticRegression':
+        model.fit(X_train_val, y_train_val)
+        print_coefficients(feature_names, model)
+    scores_dict = record_scores(model_name, hyperparameters, mean_scores)
+    records_df = records_df.append(scores_dict, ignore_index=True)
+
+    return records_df
+
+def calc_classif_scores_cv(scores):
     mean_train_f1 = np.mean(scores['train_f1'])
     mean_val_f1 = np.mean(scores['test_f1'])
     mean_train_precision = np.mean(scores['train_precision'])
@@ -191,24 +214,15 @@ def cv(model, X_train_val, y_train_val, cv_records_df):
     mean_train_auc = np.mean(scores['train_roc_auc'])
     mean_val_auc = np.mean(scores['test_roc_auc'])
 
-    print(f'Model name: {model_name}')
-    print(f'Hyperparameters: {hyperparameters}\n')
+    mean_scores = (mean_train_f1, mean_val_f1,
+                   mean_train_precision, mean_val_precision,
+                   mean_train_recall, mean_val_recall,
+                   mean_train_accuracy, mean_val_accuracy,
+                   mean_train_auc, mean_val_auc)
 
-    print(f'{"Mean train F1:": <25} {mean_train_f1: .3f}')
-    print(f'{"Mean val F1:": <25} {mean_val_f1: .3f}')
-    print(f'{"Mean train precision:": <25} {mean_train_precision: .3f}')
-    print(f'{"Mean val precision:": <25} {mean_val_precision: .3f}')
-    print(f'{"Mean train recall:": <25} {mean_train_recall: .3f}')
-    print(f'{"Mean val recall:": <25} {mean_val_recall: .3f}')
-    print(f'{"Mean train accuracy:": <25} {mean_train_accuracy: .3f}')
-    print(f'{"Mean val accuracy:": <25} {mean_val_accuracy: .3f}')
-    print(f'{"Mean train AUC:": <25} {mean_train_auc: .3f}')
-    print(f'{"Mean val AUC:": <25} {mean_val_auc: .3f}')
+    return mean_scores
 
-    cv_records_df = cv_records_df.append(
-        record_scores(model_name, hyperparameters, scores),
-        ignore_index=True)
-    return cv_records_df
+
 
 def record_scores(model_name, hyperparameters, scores):
     """Records scores with other record-keeping information
