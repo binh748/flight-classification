@@ -1,3 +1,6 @@
+"""This module contains helper functions to use when working on a classification
+problem."""
+
 import re
 import numpy as np
 import seaborn as sns
@@ -7,6 +10,23 @@ from sklearn.model_selection import train_test_split, \
     KFold, cross_validate
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, \
     roc_auc_score, roc_curve
+
+
+def feature_target_selection(features, target, df):
+    """Returns two dataframes, each corresponding to the features and target.
+
+    Args:
+        features: A list of features for the model.
+        target: The target for the model, passed as a single-element list.
+
+    Returns:
+        X: A dataframe only consisting of the features.
+        y: A dataframe only consisting ot the target.
+    """
+    X = df.loc[:, features]
+    y = df[target]
+    return X, y
+
 
 def initial_split(X, y):
     """Splits features and target dataframes in 80/20 ratio.
@@ -29,6 +49,7 @@ def initial_split(X, y):
         X, y, test_size=0.2, random_state=4444)
     return X_train_val, X_test, y_train_val, y_test
 
+
 def second_split(X_train_val, y_train_val):
     """Splits features and target dataframes so training set
     is 60% of all data and validation set is 20% of all data.
@@ -43,23 +64,9 @@ def second_split(X_train_val, y_train_val):
         X_train_val, y_train_val, test_size=.25, random_state=4444)
     return X_train, X_val, y_train, y_val
 
-def feature_target_selection(features, target, df):
-    """Returns two dataframes, each corresponding to the features and target.
 
-    Args:
-        features: A list of features for the model.
-        target: The target for the model, passed as a single-element list.
-
-    Returns:
-        X: A dataframe only consisting of the features.
-        y: A dataframe only consisting ot the target.
-    """
-    X = df.loc[:, features]
-    y = df[target]
-    return X, y
-
-def split_and_simple_validate(model, X_train_val, y_train_val, sv_records_df,
-                              threshold=0.5, scale=False, xgboost=False):
+def simple_validate(model, X_train, X_val, y_train, y_val,
+                    records_df, threshold=0.5, scale=False):
     """Splits the data into training and validation sets in 75/25 ratio and
     prints scores/intercept/coefficients.
 
@@ -71,48 +78,67 @@ def split_and_simple_validate(model, X_train_val, y_train_val, sv_records_df,
         y_train_val: A dataframe, containing 80% of the original target data, to
             be used for training and validation.
     """
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train_val, y_train_val, test_size=.25, random_state=4444)
-
-    model_name = re.sub(r'\((.*)\)', '', str(model))
-
-    if scale:
+    if scale: # Scale features before fitting model
         scaler = StandardScaler()
+        # Saves the feature names since they get lost after scaling
+        feature_names = X_train.columns
         X_train = scaler.fit_transform(X_train)
         X_val = scaler.transform(X_val)
     model.fit(X_train, y_train)
-    if xgboost:
-        y_train_pred = np.where(model.predict(X_train,
-            ntree_limit=model.best_ntree_limit) > threshold, 1, 0)
-        y_val_pred = np.where(model.predict(X_val,
-            ntree_limit=model.best_ntree_limit) > threshold, 1, 0)
+
+    # Threshold only set differently if logistic regression
+    if threshold == 0.5:
+        y_train_pred = model.predict(X_train)
+        y_val_pred = model.predict(X_val)
     else:
-        if threshold == 0.5:
-            y_train_pred = model.predict(X_train)
-            y_val_pred = model.predict(X_val)
-        else:
-            y_train_pred = np.where(model.predict_proba(X_train)[
-                                    :, 1] > threshold, 1, 0)
-            y_val_pred = np.where(model.predict_proba(X_val)
-                                  [:, 1] > threshold, 1, 0)
+        y_train_pred = np.where(
+            model.predict_proba(X_train)[:, 1] > threshold, 1, 0)
+        y_val_pred = np.where(
+            model.predict_proba(X_val)[:, 1] > threshold, 1, 0)
 
-
+    match = re.search('^[A-Za-z]+', str(model))
+    model_name = match.group(0)
     hyperparameters = str(model).replace(model_name, '')[1:-1]
 
+    scores = calc_classif_scores(
+        y_train, y_train_pred,
+        y_val, y_val_pred)
+    print_classif_scores(scores)
+    if model_name == 'LogisticRegression':
+        print_coefficients(feature_names, model)
+    scores_dict = record_scores(model_name, hyperparameters, scores)
+    records_df = records_df.append(scores_dict, ignore_index=True)
+
+    return model, records_df
+
+
+def calc_classif_scores(y_train, y_train_pred,
+                        y_val, y_val_pred):
     train_f1 = f1_score(y_train, y_train_pred)
     val_f1 = f1_score(y_val, y_val_pred)
-
     train_precision = precision_score(y_train, y_train_pred)
     val_precision = precision_score(y_val, y_val_pred)
-
     train_recall = recall_score(y_train, y_train_pred)
     val_recall = recall_score(y_val, y_val_pred)
-
     train_accuracy = accuracy_score(y_train, y_train_pred)
     val_accuracy = accuracy_score(y_val, y_val_pred)
-
     train_auc = roc_auc_score(y_train, y_train_pred)
     val_auc = roc_auc_score(y_val, y_val_pred)
+
+    scores = (train_f1, val_f1,
+              train_precision, val_precision,
+              train_recall, val_recall,
+              train_accuracy, val_accuracy,
+              train_auc, val_auc)
+    return scores
+
+
+def print_classif_scores(scores):
+    train_f1, val_f1, \
+    train_precision, val_precision, \
+    train_recall, val_recall, \
+    train_accuracy, val_accuracy, \
+    train_auc, val_auc = scores
 
     print(f'{"Train F1:": <40} {train_f1: .2f}')
     print(f'{"Val F1:": <40} {val_f1: .2f}')
@@ -125,21 +151,13 @@ def split_and_simple_validate(model, X_train_val, y_train_val, sv_records_df,
     print(f'{"Train AUC:": <40} {train_auc: .2f}')
     print(f'{"Val AUC:": <40} {val_auc: .2f}')
 
-    if model_name == 'LogisticRegression':
-        print('\nFeature coefficients:\n')
-        for feature, coef in zip(X_train_val.columns, model.coef_[0]):
-            print(f'{feature: <40} {coef: .2f}')
-        print(f'\n{"Intercept:": <40} {model.intercept_[0]: .2f}')
 
-    sv_records_df = sv_records_df.append(record_scores(model_name, hyperparameters,
-                                                       train_f1, val_f1,
-                                                       train_precision, val_precision,
-                                                       train_recall, val_recall,
-                                                       train_accuracy, val_accuracy,
-                                                       train_auc, val_auc),
-                                         ignore_index=True)
+def print_coefficients(feature_names, model):
+    print('\nFeature coefficients:\n')
+    for feature, coef in zip(feature_names, model.coef_[0]):
+        print(f'{feature: <40} {coef: .2f}')
+    print(f'\n{"Intercept:": <40} {model.intercept_[0]: .2f}')
 
-    return model, sv_records_df
 
 def cv(model, X_train_val, y_train_val, cv_records_df):
     """Performs 5-fold cross validation and prints training and test scores.
@@ -187,21 +205,12 @@ def cv(model, X_train_val, y_train_val, cv_records_df):
     print(f'{"Mean train AUC:": <25} {mean_train_auc: .3f}')
     print(f'{"Mean val AUC:": <25} {mean_val_auc: .3f}')
 
-    cv_records_df = cv_records_df.append(record_scores(model_name, hyperparameters,
-                                                       mean_train_f1, mean_val_f1,
-                                                       mean_train_precision, mean_val_precision,
-                                                       mean_train_recall, mean_val_recall,
-                                                       mean_train_accuracy, mean_val_accuracy,
-                                                       mean_train_auc, mean_val_auc),
-                                         ignore_index=True)
+    cv_records_df = cv_records_df.append(
+        record_scores(model_name, hyperparameters, scores),
+        ignore_index=True)
     return cv_records_df
 
-def record_scores(model_name, hyperparameters,
-                  mean_train_f1, mean_val_f1,
-                  mean_train_precision, mean_val_precision,
-                  mean_train_recall, mean_val_recall,
-                  mean_train_accuracy, mean_val_accuracy,
-                  mean_train_auc, mean_val_auc):
+def record_scores(model_name, hyperparameters, scores):
     """Records scores with other record-keeping information
     in a dict.
 
@@ -224,24 +233,31 @@ def record_scores(model_name, hyperparameters,
             information.
     """
     scores_dict = {}
-    desc = input("iteration_desc: ")
-    feature_eng = input("feature_engineering: ")
+    train_f1, val_f1, \
+    train_precision, val_precision, \
+    train_recall, val_recall, \
+    train_accuracy, val_accuracy, \
+    train_auc, val_auc = scores
+    validation_type = input("Validation type: ")
+    desc = input("Iteration description: ")
+    feature_eng = input("Feature engineering: ")
 
     scores_dict['model'] = model_name
+    scores_dict['validation_type'] = validation_type
     scores_dict['iteration_desc'] = desc
     scores_dict['feature_engineering'] = feature_eng
     scores_dict['hyperparameter_tuning'] = hyperparameters
 
-    scores_dict['mean_train_f1'] = float(f'{mean_train_f1: .3f}')
-    scores_dict['mean_val_f1'] = float(f'{mean_val_f1: .3f}')
-    scores_dict['mean_train_precision'] = float(f'{mean_train_precision: .3f}')
-    scores_dict['mean_val_precision'] = float(f'{mean_val_precision: .3f}')
-    scores_dict['mean_train_recall'] = float(f'{mean_train_recall: .3f}')
-    scores_dict['mean_val_recall'] = float(f'{mean_val_recall: .3f}')
-    scores_dict['mean_train_accuracy'] = float(f'{mean_train_accuracy: .3f}')
-    scores_dict['mean_val_accuracy'] = float(f'{mean_val_accuracy: .3f}')
-    scores_dict['mean_train_AUC'] = float(f'{mean_train_auc: .3f}')
-    scores_dict['mean_val_AUC'] = float(f'{mean_val_auc: .3f}')
+    scores_dict['train_f1'] = float(f'{train_f1: .3f}')
+    scores_dict['val_f1'] = float(f'{val_f1: .3f}')
+    scores_dict['train_precision'] = float(f'{train_precision: .3f}')
+    scores_dict['val_precision'] = float(f'{val_precision: .3f}')
+    scores_dict['train_recall'] = float(f'{train_recall: .3f}')
+    scores_dict['val_recall'] = float(f'{val_recall: .3f}')
+    scores_dict['train_accuracy'] = float(f'{train_accuracy: .3f}')
+    scores_dict['val_accuracy'] = float(f'{val_accuracy: .3f}')
+    scores_dict['train_AUC'] = float(f'{train_auc: .3f}')
+    scores_dict['val_AUC'] = float(f'{val_auc: .3f}')
 
     return scores_dict
 
