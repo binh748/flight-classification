@@ -113,56 +113,6 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
     return model, records_df
 
 
-def calc_classif_scores(y_train, y_train_pred,
-                        y_val, y_val_pred):
-    train_f1 = f1_score(y_train, y_train_pred)
-    val_f1 = f1_score(y_val, y_val_pred)
-    train_precision = precision_score(y_train, y_train_pred)
-    val_precision = precision_score(y_val, y_val_pred)
-    train_recall = recall_score(y_train, y_train_pred)
-    val_recall = recall_score(y_val, y_val_pred)
-    train_accuracy = accuracy_score(y_train, y_train_pred)
-    val_accuracy = accuracy_score(y_val, y_val_pred)
-    train_auc = roc_auc_score(y_train, y_train_pred)
-    val_auc = roc_auc_score(y_val, y_val_pred)
-
-    scores = (train_f1, val_f1,
-              train_precision, val_precision,
-              train_recall, val_recall,
-              train_accuracy, val_accuracy,
-              train_auc, val_auc)
-    return scores
-
-
-def print_classif_scores(scores, model_name, hyperparameters):
-    train_f1, val_f1, \
-    train_precision, val_precision, \
-    train_recall, val_recall, \
-    train_accuracy, val_accuracy, \
-    train_auc, val_auc = scores
-
-    print(f'Model name: {model_name}')
-    print(f'Hyperparameters: {hyperparameters}\n')
-
-    print(f'{"Train F1:": <40} {train_f1: .2f}')
-    print(f'{"Val F1:": <40} {val_f1: .2f}')
-    print(f'{"Train precision:": <40} {train_precision: .2f}')
-    print(f'{"Val precision:": <40} {val_precision: .2f}')
-    print(f'{"Train recall:": <40} {train_recall: .2f}')
-    print(f'{"Val recall:": <40} {val_recall: .2f}')
-    print(f'{"Train accuracy:": <40} {train_accuracy: .2f}')
-    print(f'{"Val accuracy:": <40} {val_accuracy: .2f}')
-    print(f'{"Train AUC:": <40} {train_auc: .2f}')
-    print(f'{"Val AUC:": <40} {val_auc: .2f}')
-
-
-def print_coefficients(feature_names, model):
-    print('\nFeature coefficients:\n')
-    for feature, coef in zip(feature_names, model.coef_[0]):
-        print(f'{feature: <40} {coef: .2f}')
-    print(f'\n{"Intercept:": <40} {model.intercept_[0]: .2f}')
-
-
 def cv(model, X_train_val, y_train_val, records_df, scale=False):
     """Performs 5-fold cross validation and prints training and test scores.
     Also adds scores to cv_records, which is a list of dicts.
@@ -202,6 +152,27 @@ def cv(model, X_train_val, y_train_val, records_df, scale=False):
 
     return records_df
 
+def calc_classif_scores(y_train, y_train_pred,
+                        y_val, y_val_pred):
+    train_f1 = f1_score(y_train, y_train_pred)
+    val_f1 = f1_score(y_val, y_val_pred)
+    train_precision = precision_score(y_train, y_train_pred)
+    val_precision = precision_score(y_val, y_val_pred)
+    train_recall = recall_score(y_train, y_train_pred)
+    val_recall = recall_score(y_val, y_val_pred)
+    train_accuracy = accuracy_score(y_train, y_train_pred)
+    val_accuracy = accuracy_score(y_val, y_val_pred)
+    train_auc = roc_auc_score(y_train, y_train_pred)
+    val_auc = roc_auc_score(y_val, y_val_pred)
+
+    scores = (train_f1, val_f1,
+              train_precision, val_precision,
+              train_recall, val_recall,
+              train_accuracy, val_accuracy,
+              train_auc, val_auc)
+    return scores
+
+
 def calc_classif_scores_cv(scores):
     mean_train_f1 = np.mean(scores['train_f1'])
     mean_val_f1 = np.mean(scores['test_f1'])
@@ -222,6 +193,34 @@ def calc_classif_scores_cv(scores):
 
     return mean_scores
 
+
+def print_classif_scores(scores, model_name, hyperparameters):
+    train_f1, val_f1, \
+    train_precision, val_precision, \
+    train_recall, val_recall, \
+    train_accuracy, val_accuracy, \
+    train_auc, val_auc = scores
+
+    print(f'Model name: {model_name}')
+    print(f'Hyperparameters: {hyperparameters}\n')
+
+    print(f'{"Train F1:": <40} {train_f1: .2f}')
+    print(f'{"Val F1:": <40} {val_f1: .2f}')
+    print(f'{"Train precision:": <40} {train_precision: .2f}')
+    print(f'{"Val precision:": <40} {val_precision: .2f}')
+    print(f'{"Train recall:": <40} {train_recall: .2f}')
+    print(f'{"Val recall:": <40} {val_recall: .2f}')
+    print(f'{"Train accuracy:": <40} {train_accuracy: .2f}')
+    print(f'{"Val accuracy:": <40} {val_accuracy: .2f}')
+    print(f'{"Train AUC:": <40} {train_auc: .2f}')
+    print(f'{"Val AUC:": <40} {val_auc: .2f}')
+
+
+def print_coefficients(feature_names, model):
+    print('\nFeature coefficients:\n')
+    for feature, coef in zip(feature_names, model.coef_[0]):
+        print(f'{feature: <40} {coef: .2f}')
+    print(f'\n{"Intercept:": <40} {model.intercept_[0]: .2f}')
 
 
 def record_scores(model_name, hyperparameters, scores):
@@ -275,10 +274,12 @@ def record_scores(model_name, hyperparameters, scores):
 
     return scores_dict
 
+
 def plot_ROC(model, X_train, X_val, y_train, y_val):
     model.fit(X_train, y_train)
     fpr, tpr, thresholds = roc_curve(y_val, model.predict_proba(X_val)[:, 1])
-    model_name = re.sub(r'\((.*)\)', '', str(model))
+    match = re.search('^[A-Za-z]+', str(model))
+    model_name = match.group(0)
     plt.plot(fpr, tpr, lw=2, label=model_name)
     plt.plot([0, 1], [0, 1], c='violet', ls='--')
     plt.xlim([-0.05, 1.05])
@@ -304,6 +305,7 @@ def get_best_threshold_from_roc_curve(fpr, tpr, thresholds):
     best_threshold = thresholds[np.argmax(combined_score)]
     best_score = np.amax(combined_score)
     return best_score, best_threshold
+
 
 def pairplot_features(df):
     """Displays pairplot for given set of features with distributions
