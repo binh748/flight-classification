@@ -92,9 +92,9 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
         y_val_pred = model.predict(X_val)
     else:
         y_train_pred = np.where(
-            model.predict_proba(X_train)[:, 1] > threshold, 1, 0)
+            model.predict_proba(X_train)[:, 1] >= threshold, 1, 0)
         y_val_pred = np.where(
-            model.predict_proba(X_val)[:, 1] > threshold, 1, 0)
+            model.predict_proba(X_val)[:, 1] >= threshold, 1, 0)
 
     match = re.search('^[A-Za-z]+', str(model))
     model_name = match.group(0)
@@ -316,3 +316,69 @@ def pairplot_features(df):
     """
     sample = df.sample(10000, random_state=4444)
     sns.pairplot(sample, hue='is_not_on_time', plot_kws=dict(alpha=0.3))
+
+
+def get_optimal_f1_threshold(model, X_train, X_val, y_train, y_val):
+    model.fit(X_train, y_train)
+    thresholds = np.linspace(.1, .5, 1000)
+    model_val_probs = model.predict_proba(X_val)[:, 1]
+    f1_scores = []
+
+    for threshold in thresholds:
+        y_val_pred = np.where(model_val_probs >= threshold, 1, 0)
+        f1_scores.append(f1_score(y_val, y_val_pred))
+
+    best_f1_score = np.max(f1_scores)
+    best_threshold = thresholds[np.argmax(f1_scores)]
+    return best_f1_score, best_threshold
+
+
+def test_scores(model, X_train_val, X_test,
+                y_train_val, y_test,
+                threshold=0.5, scale=False):
+    match = re.search('^[A-Za-z]+', str(model))
+    model_name = match.group(0)
+    hyperparameters = str(model).replace(model_name, '')[1:-1]
+    # Saves the feature names since they get lost after scaling
+    feature_names = X_train_val.columns
+    if scale: # Scales features before fitting model
+        scaler = StandardScaler()
+        X_train_val = scaler.fit_transform(X_train_val)
+        X_test = scaler.transform(X_test)
+    model.fit(X_train_val, y_train_val)
+    # Threshold only set differently if logistic regression
+    if threshold == 0.5:
+        y_train_val_pred = model.predict(X_train_val)
+        y_test_pred = model.predict(X_test)
+    else:
+        y_train_val_pred = np.where(
+            model.predict_proba(X_train_val)[:, 1] >= threshold, 1, 0)
+        y_test_pred = np.where(
+            model.predict_proba(X_test)[:, 1] >= threshold, 1, 0)
+    train_f1 = f1_score(y_train_val, y_train_val_pred)
+    test_f1 = f1_score(y_test, y_test_pred)
+    train_precision = precision_score(y_train_val, y_train_val_pred)
+    test_precision = precision_score(y_test, y_test_pred)
+    train_recall = recall_score(y_train_val, y_train_val_pred)
+    test_recall = recall_score(y_test, y_test_pred)
+    train_accuracy = accuracy_score(y_train_val, y_train_val_pred)
+    test_accuracy = accuracy_score(y_test, y_test_pred)
+    train_auc = roc_auc_score(y_train_val, y_train_val_pred)
+    test_auc = roc_auc_score(y_test, y_test_pred)
+
+    print(f'Model name: {model_name}')
+    print(f'Hyperparameters: {hyperparameters}\n')
+
+    print(f'{"Train F1:": <40} {train_f1: .2f}')
+    print(f'{"Test F1:": <40} {test_f1: .2f}')
+    print(f'{"Train precision:": <40} {train_precision: .2f}')
+    print(f'{"Test precision:": <40} {test_precision: .2f}')
+    print(f'{"Train recall:": <40} {train_recall: .2f}')
+    print(f'{"Test recall:": <40} {test_recall: .2f}')
+    print(f'{"Train accuracy:": <40} {train_accuracy: .2f}')
+    print(f'{"Test accuracy:": <40} {test_accuracy: .2f}')
+    print(f'{"Train AUC:": <40} {train_auc: .2f}')
+    print(f'{"Test AUC:": <40} {test_auc: .2f}')
+
+    if model_name == 'LogisticRegression':
+        print_coefficients(feature_names, model)
