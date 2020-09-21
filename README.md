@@ -1,8 +1,6 @@
 # Optimizing Flight Choices for Punctuality
 
-For my [Metis](https://www.thisismetis.com/data-science-bootcamps) classification project, I modeled flight delay probabilities using a logistic regression model. 
-
-I wrote tips on how to choose flights with the highest probability of being on-time based on my logistic regression model coefficients. 
+For my [Metis](https://www.thisismetis.com/data-science-bootcamps) classification project, I modeled flight delay probabilities using a logistic regression model. I also wrote tips on how to choose flights with the highest probability of being on-time based on my logistic regression model coefficients. 
 
 ## Table of Contents
 
@@ -12,8 +10,8 @@ I wrote tips on how to choose flights with the highest probability of being on-t
 
 ## Screenshots
 
-![tip1](https://user-images.githubusercontent.com/62628676/93727297-90b31180-fb88-11ea-890d-13b7356c9d17.png)
 ![logistic_regression_model_results](https://user-images.githubusercontent.com/62628676/93727343-bdffbf80-fb88-11ea-8298-0b07d694de6a.png)
+![tip1](https://user-images.githubusercontent.com/62628676/93727297-90b31180-fb88-11ea-890d-13b7356c9d17.png)
 
 ## Technologies
 
