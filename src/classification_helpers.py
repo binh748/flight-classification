@@ -20,8 +20,8 @@ def feature_target_selection(features, target, df):
         target: The target for the model, passed as a single-element list.
 
     Returns:
-        X: A dataframe only consisting of the features.
-        y: A dataframe only consisting ot the target.
+        X: A dataframe consisting of the features.
+        y: A dataframe consisting ot the target.
     """
     X = df.loc[:, features]
     y = df[target]
@@ -32,8 +32,8 @@ def initial_split(X, y):
     """Splits features and target dataframes in 80/20 ratio.
 
     Args:
-        X: A dataframe only consisting of the features.
-        y: A dataframe only consisting of the target.
+        X: A dataframe consisting of the features.
+        y: A dataframe consisting of the target.
 
     Returns:
         X_train_val: A dataframe, containing 80% of the original features data,
@@ -59,6 +59,16 @@ def second_split(X_train_val, y_train_val):
             to be used for training and validation.
         y_train_val: A dataframe, containing 80% of the original target data, to
             be used for training and validation.
+
+    Returns:
+        X_train: A dataframe, containing 60% of the original features data,
+            to be used for training.
+        X_val: A dataframe, containing 20% of the original features data, to be
+            used for validation.
+        y_train: A dataframe, containing 60% of the original target data, to
+            be used for training.
+        y_val: A dataframe, containing 20% of the original target data, to be
+            used for validation.
     """
     X_train, X_val, y_train, y_val = train_test_split(
         X_train_val, y_train_val, test_size=.25, random_state=4444)
@@ -77,6 +87,10 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
             to be used for training and validation.
         y_train_val: A dataframe, containing 80% of the original target data, to
             be used for training and validation.
+
+    Returns:
+        model: The model fitted on training data.
+        records_df: Training and validation scores stored in a df.
     """
     if scale: # Scales features before fitting model
         scaler = StandardScaler()
@@ -123,7 +137,11 @@ def cv(model, X_train_val, y_train_val, records_df, scale=False):
             to be used for training and validation.
         y_train_val: A dataframe, containing 80% of the original target data, to
             be used for training and validation.
-        cv_records_df: A dataframe to record cross validation scores.
+        records_df: Training and validation scores stored in a df.
+
+    Returns:
+        records_df: Training and validation scores stored in a df with the newest
+            set of scores appended.
     """
     # Saves the feature names, which will get lost if scaling applied
     feature_names = X_train_val.columns
@@ -154,6 +172,7 @@ def cv(model, X_train_val, y_train_val, records_df, scale=False):
 
 def calc_classif_scores(y_train, y_train_pred,
                         y_val, y_val_pred):
+    """Returns training and simple validation scores in a tuple."""
     train_f1 = f1_score(y_train, y_train_pred)
     val_f1 = f1_score(y_val, y_val_pred)
     train_precision = precision_score(y_train, y_train_pred)
@@ -174,6 +193,7 @@ def calc_classif_scores(y_train, y_train_pred,
 
 
 def calc_classif_scores_cv(scores):
+    """Returns training and cross validation scores in a tuple."""
     mean_train_f1 = np.mean(scores['train_f1'])
     mean_val_f1 = np.mean(scores['test_f1'])
     mean_train_precision = np.mean(scores['train_precision'])
@@ -195,6 +215,7 @@ def calc_classif_scores_cv(scores):
 
 
 def print_classif_scores(scores, model_name, hyperparameters):
+    """Prints training and validation scores."""
     train_f1, val_f1, \
     train_precision, val_precision, \
     train_recall, val_recall, \
@@ -217,6 +238,7 @@ def print_classif_scores(scores, model_name, hyperparameters):
 
 
 def print_coefficients(feature_names, model):
+    """Prints logistic regression model coefficients."""
     print('\nFeature coefficients:\n')
     for feature, coef in zip(feature_names, model.coef_[0]):
         print(f'{feature: <40} {coef: .2f}')
@@ -276,6 +298,8 @@ def record_scores(model_name, hyperparameters, scores):
 
 
 def plot_ROC(model, X_train, X_val, y_train, y_val):
+    """Plot ROC curve and returns false positive rate, true positive rate (aka recall),
+    and thresholds used in generating ROC curve."""
     model.fit(X_train, y_train)
     fpr, tpr, thresholds = roc_curve(y_val, model.predict_proba(X_val)[:, 1])
     match = re.search('^[A-Za-z]+', str(model))
@@ -291,7 +315,8 @@ def plot_ROC(model, X_train, X_val, y_train, y_val):
     return fpr, tpr, thresholds
 
 def get_best_threshold_from_roc_curve(fpr, tpr, thresholds):
-    """Returns best combined tpr/fpr score and the threshold associated with that score.
+    """Returns best combined true positive rate/false positive rate score and
+    the threshold associated with that score.
 
     Args:
         fpr: False positive rates (fp/(fp+tn)).
@@ -319,6 +344,8 @@ def pairplot_features(df):
 
 
 def get_optimal_f1_threshold(model, X_train, X_val, y_train, y_val):
+    """Returns the logistic regression threshold that corresponds with the best
+    F1 score."""
     model.fit(X_train, y_train)
     thresholds = np.linspace(.1, .5, 1000)
     model_val_probs = model.predict_proba(X_val)[:, 1]
@@ -336,6 +363,8 @@ def get_optimal_f1_threshold(model, X_train, X_val, y_train, y_val):
 def test_scores(model, X_train_val, X_test,
                 y_train_val, y_test,
                 threshold=0.5, scale=False):
+    """Trains model on combined training and validation data and evaluates model on
+    test data. Prints out scores on test data."""
     match = re.search('^[A-Za-z]+', str(model))
     model_name = match.group(0)
     hyperparameters = str(model).replace(model_name, '')[1:-1]
