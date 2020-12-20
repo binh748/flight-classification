@@ -92,10 +92,9 @@ def simple_validate(model, X_train, X_val, y_train, y_val,
         model: The model fitted on training data.
         records_df: Training and validation scores stored in a df.
     """
+    feature_names = X_train.columns
     if scale: # Scales features before fitting model
         scaler = StandardScaler()
-        # Saves the feature names since they get lost after scaling
-        feature_names = X_train.columns
         X_train = scaler.fit_transform(X_train)
         X_val = scaler.transform(X_val)
     model.fit(X_train, y_train)
