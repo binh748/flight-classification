@@ -6,7 +6,7 @@ Moreover, I wrote tips on how to choose flights with the highest probability of 
 
 ## Table of Contents
 
-* [Screenshots](#screenshots)
+* [Visualizations](#visualizations)
 * [Technologies](#technologies)
 * [Metis](#metis)
 
