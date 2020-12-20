@@ -10,7 +10,7 @@ Moreover, I wrote tips on how to choose flights with the highest probability of 
 * [Technologies](#technologies)
 * [Metis](#metis)
 
-## Screenshots
+## Visualizations
 
 ![logistic_regression_model_results](https://user-images.githubusercontent.com/62628676/93727343-bdffbf80-fb88-11ea-8298-0b07d694de6a.png)
 ![tip1](https://user-images.githubusercontent.com/62628676/93727297-90b31180-fb88-11ea-890d-13b7356c9d17.png)
