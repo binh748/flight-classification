@@ -4,6 +4,8 @@ For my [Metis](https://www.thisismetis.com/data-science-bootcamps) classificatio
 
 Moreover, I wrote tips on how to choose flights with the highest probability of being on-time based on my logistic regression model coefficients. 
 
+To learn more, see my [blog post](https://binhhoang.io/blog/optiziming-flight-choices-for-punctuality/). 
+
 ## Table of Contents
 
 * [Visualizations](#visualizations)
